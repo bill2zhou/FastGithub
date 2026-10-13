@@ -37,7 +37,7 @@ namespace FastGithub.HttpServer.HttpMiddlewares
             {
                 var proxyPac = this.CreateProxyPac(context.Request.Host);
                 context.Response.ContentType = "application/x-ns-proxy-autoconfig";
-                context.Response.Headers.Add("Content-Disposition", $"attachment;filename=proxy.pac");
+                context.Response.Headers["Content-Disposition"] = $"attachment;filename=proxy.pac";
                 await context.Response.WriteAsync(proxyPac);
             }
             else

@@ -32,14 +32,12 @@ namespace FastGithub
             builder.Host.UseSerilog((hosting, logger) =>
             {
                 var template = "{Timestamp:O} [{Level:u3}]{NewLine}{SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}";
+                var udpLoggerPort = hosting.Configuration.GetValue(nameof(AppOptions.UdpLoggerPort), 38457);
                 logger
                     .ReadFrom.Configuration(hosting.Configuration)
                     .Enrich.FromLogContext()
                     .WriteTo.Console(outputTemplate: template)
-                    .WriteTo.File(Path.Combine("logs", @"log.txt"), rollingInterval: RollingInterval.Day, outputTemplate: template);
-
-                var udpLoggerPort = hosting.Configuration.GetValue(nameof(AppOptions.UdpLoggerPort), 38457);
-                logger.WriteTo.UDPSink(IPAddress.Loopback, udpLoggerPort);
+                    .WriteTo.UDPSink(IPAddress.Loopback, udpLoggerPort);
             });
         }
 

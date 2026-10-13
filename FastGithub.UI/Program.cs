@@ -14,6 +14,11 @@ namespace FastGithub.UI
         private const string MAIN_WINDOWS = "MainWindow.xaml";
         private const string FASTGITHUB_PATH = "fastgithub.exe";
 
+        /// <summary>
+        /// 本ui启动的后台服务进程
+        /// </summary>
+        private static Process? fastGithubProcess;
+
         [STAThread]
         static void Main(string[] args)
         {
@@ -87,11 +92,17 @@ namespace FastGithub.UI
 
         /// <summary>
         /// 启动fastgithub
+        /// 已安装为windows服务时，由服务运行，不再启动本地实例
         /// </summary>
         /// <returns></returns>
-        private static void StartFastGithub()
+        internal static void StartFastGithub()
         {
             if (File.Exists(FASTGITHUB_PATH) == false)
+            {
+                return;
+            }
+
+            if (ServiceUtil.IsInstalled() == true)
             {
                 return;
             }
@@ -103,7 +114,54 @@ namespace FastGithub.UI
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            Process.Start(startInfo);
+            fastGithubProcess = Process.Start(startInfo);
+        }
+
+        /// <summary>
+        /// 停止本ui启动的后台服务
+        /// 不影响已安装的windows服务
+        /// </summary>
+        public static void StopFastGithub()
+        {
+            var hadLocalInstance = fastGithubProcess != null;
+            if (hadLocalInstance == true && fastGithubProcess!.HasExited == false)
+            {
+                try
+                {
+                    fastGithubProcess.Kill();
+                    fastGithubProcess.WaitForExit(5000);
+                }
+                catch (Exception)
+                {
+                }
+            }
+
+            fastGithubProcess = null;
+
+            // 仅本地实例模式才停止dnscrypt-proxy
+            // 服务模式下dnscrypt-proxy也是windows服务，不能杀
+            if (hadLocalInstance == true)
+            {
+                StopDnscryptProxy();
+            }
+        }
+
+        /// <summary>
+        /// 停止dnscrypt-proxy进程
+        /// </summary>
+        private static void StopDnscryptProxy()
+        {
+            foreach (var process in Process.GetProcessesByName("dnscrypt-proxy"))
+            {
+                try
+                {
+                    process.Kill();
+                    process.WaitForExit(3000);
+                }
+                catch (Exception)
+                {
+                }
+            }
         }
     }
 }

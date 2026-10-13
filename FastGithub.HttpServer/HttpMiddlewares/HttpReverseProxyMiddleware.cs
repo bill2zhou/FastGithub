@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Text;
 using System.Threading.Tasks;
 using Yarp.ReverseProxy.Forwarder;
 
@@ -130,11 +131,60 @@ namespace FastGithub.HttpServer.HttpMiddlewares
                 return;
             }
 
-            await context.Response.WriteAsJsonAsync(new
+            // 修剪(Trim)后匿名类型缺少JsonTypeInfo元数据，WriteAsJsonAsync会抛异常，故改为手写json
+            var message = context.GetForwarderErrorFeature()?.Exception?.Message;
+            var json = $"{{\"error\":{ToJsonString(error.ToString())},\"message\":{ToJsonString(message)}}}";
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(json);
+        }
+
+        /// <summary>
+        /// 转换为json字符串字面量
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        private static string ToJsonString(string? value)
+        {
+            if (value == null)
             {
-                error = error.ToString(),
-                message = context.GetForwarderErrorFeature()?.Exception?.Message
-            });
+                return "null";
+            }
+
+            var builder = new StringBuilder(value.Length + 2);
+            builder.Append('"');
+            foreach (var c in value)
+            {
+                switch (c)
+                {
+                    case '"':
+                        builder.Append("\\\"");
+                        break;
+                    case '\\':
+                        builder.Append("\\\\");
+                        break;
+                    case '\n':
+                        builder.Append("\\n");
+                        break;
+                    case '\r':
+                        builder.Append("\\r");
+                        break;
+                    case '\t':
+                        builder.Append("\\t");
+                        break;
+                    default:
+                        if (c < 0x20)
+                        {
+                            builder.Append("\\u").Append(((int)c).ToString("x4"));
+                        }
+                        else
+                        {
+                            builder.Append(c);
+                        }
+                        break;
+                }
+            }
+            builder.Append('"');
+            return builder.ToString();
         }
     }
 }

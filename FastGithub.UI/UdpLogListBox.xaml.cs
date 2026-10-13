@@ -10,6 +10,7 @@ namespace FastGithub.UI
     public partial class UdpLogListBox : UserControl
     {
         private readonly int maxLogCount = 100;
+        private readonly TimeSpan maxLogAge = TimeSpan.FromMinutes(1d);
         public ObservableCollection<UdpLog> LogList { get; } = new ObservableCollection<UdpLog>();
 
         public UdpLogListBox()
@@ -18,6 +19,14 @@ namespace FastGithub.UI
 
             this.DataContext = this;
             this.InitUdpLoggerAsync();
+
+            // 定时清理过期日志，避免无新日志时旧日志残留
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(10d)
+            };
+            timer.Tick += (s, e) => this.RemoveExpiredLogs();
+            timer.Start();
         }
 
         private async void InitUdpLoggerAsync()
@@ -29,7 +38,14 @@ namespace FastGithub.UI
                     var log = await UdpLogger.GetUdpLogAsync();
                     if (log != null)
                     {
-                        this.LogList.Insert(0, log);
+                        // 只保留1分钟内的日志
+                        if (DateTime.Now - log.Timestamp < this.maxLogAge)
+                        {
+                            this.LogList.Insert(0, log);
+                        }
+
+                        this.RemoveExpiredLogs();
+
                         if (this.LogList.Count > this.maxLogCount)
                         {
                             this.LogList.RemoveAt(this.maxLogCount);
@@ -38,6 +54,20 @@ namespace FastGithub.UI
                 }
                 catch (Exception)
                 {
+                }
+            }
+        }
+
+        /// <summary>
+        /// 移除超过1分钟的日志
+        /// </summary>
+        private void RemoveExpiredLogs()
+        {
+            for (var i = this.LogList.Count - 1; i >= 0; i--)
+            {
+                if (DateTime.Now - this.LogList[i].Timestamp >= this.maxLogAge)
+                {
+                    this.LogList.RemoveAt(i);
                 }
             }
         }

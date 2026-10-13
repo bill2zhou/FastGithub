@@ -133,7 +133,7 @@ namespace FastGithub.HttpServer.Certs
             {
                 using var rsa = RSA.Create();
                 rsa.ImportFromPem(File.ReadAllText(this.CaKeyFilePath));
-                this.caCert = new X509Certificate2(this.CaCerFilePath).CopyWithPrivateKey(rsa);
+                this.caCert = X509CertificateLoader.LoadCertificateFromFile(this.CaCerFilePath).CopyWithPrivateKey(rsa);
             }
 
             var key = $"{nameof(CertService)}:{domain}";
@@ -153,7 +153,7 @@ namespace FastGithub.HttpServer.Certs
                 var endCert = CertGenerator.CreateEndCertificate(this.caCert, subjectName, extraDomains, notBefore, notAfter);
 
                 // 重新初始化证书，以兼容win平台不能使用内存证书
-                return new X509Certificate2(endCert.Export(X509ContentType.Pfx));
+                return X509CertificateLoader.LoadPkcs12(endCert.Export(X509ContentType.Pfx), password: null);
             }
         }
 
